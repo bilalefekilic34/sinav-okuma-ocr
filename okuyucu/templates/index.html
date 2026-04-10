@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block title %}Ana Sayfa - Sınav Sistemi{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 2rem;">
+    <h2>Sisteme Hoş Geldiniz</h2>
+    <p>Sınav sonuçlarını görüntülemek için aşağıdaki arama seçeneklerinden birini kullanın.</p>
+</div>
+
+<div class="dashboard-grid">
+
+    <div class="card">
+        <h2>📑 Sınav Bazlı Sorgulama</h2>
+        <p>Belirli bir sınava ait tüm öğrencilerin sonuçlarını, sınıf ortalamasını ve başarı durumlarını listeleyin.</p>
+
+        <form action="#" method="GET" class="form-group">
+            <label for="sinav_id">Sınav ID (5 Haneli)</label>
+            <input type="text" id="sinav_id" name="sinav_id" placeholder="Örn: 84717" required maxlength="5">
+            <button type="submit">Sınavı Getir</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>👤 Öğrenci Bazlı Sorgulama</h2>
+        <p>Belirli bir öğrencinin sisteme okutulmuş tüm sınav sonuçlarını ve gelişim profilini listeleyin.</p>
+
+        <form action="#" method="GET" class="form-group">
+            <label for="ogrenci_no">Öğrenci No (4 Haneli)</label>
+            <input type="text" id="ogrenci_no" name="ogrenci_no" placeholder="Örn: 4021" required maxlength="4">
+            <button type="submit">Öğrenciyi Bul</button>
+        </form>
+    </div>
+
+</div>
+<hr style="margin: 3rem 0; border: none; border-top: 1px solid #ddd;">
+
+<div id="sinav-yukle" class="card" style="max-width: 600px; margin: 0 auto; border-top: 4px solid #e67e22;">
+    <h2 style="color: #d35400;">📸 Yapay Zeka ile Sınav Okut</h2>
+    <p>Sınav kağıdının fotoğrafını yükleyin. DeepSeek-OCR-2 okuyacak, Makine Öğrenmesi Modeli notlandıracak ve doğrudan
+        veritabanına kaydedilecek.</p>
+
+    <form id="uploadForm" enctype="multipart/form-data" class="form-group">
+        <label for="sinav_kagidi" style="font-weight: bold;">Sınav Kağıdı (.jpg, .png)</label>
+        <input type="file" id="sinav_kagidi" name="sinav_kagidi" accept="image/*" required
+            style="border: 1px dashed #ccc; padding: 1rem;">
+        <button type="submit" style="background-color: #e67e22; font-size: 1.1rem; padding: 1rem;">🚀 Okut ve
+            Kaydet</button>
+    </form>
+
+    <div id="uploadResult" style="margin-top: 1.5rem; font-weight: bold; text-align: center; font-size: 1.1rem;"></div>
+</div>
+
+<script>
+    document.getElementById('uploadForm').addEventListener('submit', function (e) {
+        e.preventDefault(); // Sayfanın yenilenmesini engeller
+        const resultDiv = document.getElementById('uploadResult');
+        resultDiv.innerHTML = "⏳ Yapay Zeka kağıdı okuyor... <br><span style='font-size:0.9rem; color:#666;'>(Bu işlem bilgisayar hızına göre 10-30 saniye sürebilir)</span>";
+        resultDiv.style.color = "black";
+
+        const formData = new FormData(this);
+
+        fetch('/okuyucu/api/yukle/', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.durum === 'basarili') {
+                    resultDiv.innerHTML = "✅ Başarılı! Öğrenci No: " + data.ogrenci_no + " | Puan: " + data.toplam_puan + " | Karar: " + data.yapay_zeka_karari;
+                    resultDiv.style.color = "green";
+                    this.reset(); // İşlem bitince formu temizle
+                } else {
+                    resultDiv.innerHTML = "❌ Hata: " + data.mesaj;
+                    resultDiv.style.color = "red";
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = "❌ Sunucu ile iletişim kurulamadı.";
+                resultDiv.style.color = "red";
+            });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Akıllı Sınav Okuma Sistemi{% endblock %}</title>
+
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+
+<body>
+    <nav class="navbar">
+        <h1>🎓 Yapay Zeka Destekli Sınav Sistemi</h1>
+        <div>
+            <a href="#sinav-yukle"
+                style="background-color: #e67e22; color: white; padding: 0.6rem 1.2rem; text-decoration: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">📸
+                Sınav Okut (YZ)</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+</body>
+
+</html>
