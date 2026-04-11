@@ -62,3 +62,4 @@ class Akademisyen(models.Model):
 
     def __str__(self):
         return str(self.akademisyen_id)
+    
