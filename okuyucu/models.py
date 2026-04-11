@@ -48,3 +48,17 @@ class SinavSonucu(models.Model):
 
     def __str__(self):
         return f"{self.ogrenci.ogrenci_id} -> {self.sinav.sinav_id}: {self.toplam_puan}"
+
+class Akademisyen(models.Model):
+    akademisyen_id = models.CharField(max_length=20, unique=True, verbose_name="Akademisyen ID")
+    
+    # Bir akademisyen birden fazla ders verebilir
+    verdigi_dersler = models.ManyToManyField(
+        'Ders', 
+        related_name='akademisyenler', 
+        blank=True, 
+        verbose_name="Verdiği Dersler"
+    )
+
+    def __str__(self):
+        return str(self.akademisyen_id)
