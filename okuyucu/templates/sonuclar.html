@@ -9,40 +9,58 @@
 </div>
 
 {% if sonuclar %}
+
+{% if sorgu_tipi == 'sinav' %}
+<div class="row mb-4 text-center">
+    <div class="col-md-4">
+        <div class="card text-white bg-info shadow-sm mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Sınıf Ortalaması</h5>
+                <h2 class="card-text fw-bold">{{ ortalama }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card text-white bg-success shadow-sm mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Geçen Öğrenci</h5>
+                <h2 class="card-text fw-bold">{{ gecen_sayisi }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card text-white bg-danger shadow-sm mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Kalan Öğrenci</h5>
+                <h2 class="card-text fw-bold">{{ kalan_sayisi }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="card" style="padding: 0; overflow: hidden;">
     <table style="width: 100%; border-collapse: collapse; text-align: left;">
         <thead style="background-color: #2c3e50; color: white;">
             <tr>
                 {% if sorgu_tipi == 'sinav' %}
-                <div class="row mb-4 text-center">
-                    <div class="col-md-4">
-                        <div class="card text-white bg-info shadow-sm mb-3">
-                            <div class="card-body">
-                                <h5 class="card-title">Sınıf Ortalaması</h5>
-                                <h2 class="card-text fw-bold">{{ ortalama }}</h2>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-4">
-                        <div class="card text-white bg-success shadow-sm mb-3">
-                            <div class="card-body">
-                                <h5 class="card-title">Geçen Öğrenci</h5>
-                                <h2 class="card-text fw-bold">{{ gecen_sayisi }}</h2>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-4">
-                        <div class="card text-white bg-danger shadow-sm mb-3">
-                            <div class="card-body">
-                                <h5 class="card-title">Kalan Öğrenci</h5>
-                                <h2 class="card-text fw-bold">{{ kalan_sayisi }}</h2>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <th style="padding: 1rem;">Öğrenci No</th>
+                <th style="padding: 1rem;">Ad Soyad</th>
+                {% else %}
+                <th style="padding: 1rem;">Sınav ID</th>
+                <th style="padding: 1rem;">Ders</th>
                 {% endif %}
+
+                <th style="padding: 1rem;">Sorumlu Akademisyen</th>
+                <th style="padding: 1rem;">S1</th>
+                <th style="padding: 1rem;">S2</th>
+                <th style="padding: 1rem;">S3</th>
+                <th style="padding: 1rem;">S4</th>
+                <th style="padding: 1rem;">S5</th>
+                <th style="padding: 1rem;">Toplam</th>
+                <th style="padding: 1rem;">Karar</th>
             </tr>
         </thead>
         <tbody>
@@ -55,6 +73,15 @@
                 <td style="padding: 1rem;">{{ s.sinav.sinav_id }}</td>
                 <td style="padding: 1rem;">{{ s.sinav.ders.ders_adi }}</td>
                 {% endif %}
+
+                <td style="padding: 1rem;">
+                    {% if s.akademisyen %}
+                    <span class="badge bg-secondary" style="font-size: 0.9em;">{{ s.akademisyen.akademisyen_id }}</span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark" style="font-size: 0.9em;">Atanmadı</span>
+                    {% endif %}
+                </td>
+
                 <td style="padding: 1rem;">{{ s.soru_1 }}</td>
                 <td style="padding: 1rem;">{{ s.soru_2 }}</td>
                 <td style="padding: 1rem;">{{ s.soru_3 }}</td>
@@ -62,8 +89,7 @@
                 <td style="padding: 1rem;">{{ s.soru_5 }}</td>
                 <td style="padding: 1rem; font-weight: bold;">{{ s.toplam_puan }}</td>
                 <td style="padding: 1rem;">
-                    <span
-                        class="badge {% if s.ai_karari == 'Geçti' %}badge-basarili{% else %}badge-basarisiz{% endif %}">
+                    <span class="badge {% if s.ai_karari == 'Geçti' %}bg-success{% else %}bg-danger{% endif %}">
                         {{ s.ai_karari }}
                     </span>
                 </td>
@@ -72,9 +98,11 @@
         </tbody>
     </table>
 </div>
+
 {% else %}
 <div class="card">
-    <p>Maalesef kriterlere uygun bir sonuç bulunamadı.</p>
+    <p style="padding: 1rem; margin: 0;">Maalesef kriterlere uygun bir sonuç bulunamadı.</p>
 </div>
 {% endif %}
+
 {% endblock %}

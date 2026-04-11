@@ -41,7 +41,7 @@ class SinavSonucu(models.Model):
     # Yapay Zeka kararını burada tutuyoruz
     ai_karari = models.CharField(max_length=10, verbose_name="Yapay Zeka Kararı")
     okunma_tarihi = models.DateTimeField(auto_now_add=True)
-
+    akademisyen = models.ForeignKey('Akademisyen', on_delete=models.SET_NULL, null=True, blank=True)
     class Meta:
         # Bir öğrencinin aynı sınavda birden fazla sonucu olmasın (Güvenlik kilidi)
         unique_together = ('ogrenci', 'sinav')
