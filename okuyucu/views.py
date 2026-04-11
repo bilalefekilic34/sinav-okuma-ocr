@@ -107,3 +107,55 @@ def sinav_yukle_api(request):
         return JsonResponse(sonuclar)
     
     return JsonResponse({"durum": "hata", "mesaj": "Sadece POST isteği ve 'sinav_kagidi' dosyası kabul edilir."})
+
+def api_ogrenciler(request):
+    data = list(Ogrenci.objects.values('ogrenci_id', 'ad_soyad'))
+    return JsonResponse({'ogrenciler': data})
+
+# API 2: Tüm Dersleri Listele
+def api_dersler(request):
+    data = list(Ders.objects.values('ders_id', 'ders_adi'))
+    return JsonResponse({'dersler': data})
+
+# API 3: Tüm Sınavları Listele
+def api_sinavlar(request):
+    data = list(Sinav.objects.values('sinav_id', 'sinav_adi', 'ders__ders_id'))
+    return JsonResponse({'sinavlar': data})
+
+# API 4: Tüm Akademisyenleri Listele
+def api_akademisyenler(request):
+    data = list(Akademisyen.objects.values('akademisyen_id'))
+    return JsonResponse({'akademisyenler': data})
+
+# API 5: Sistemdeki Tüm Sınav Sonuçları
+def api_sonuclar(request):
+    data = list(SinavSonucu.objects.values('ogrenci__ogrenci_id', 'sinav__sinav_id', 'toplam_puan', 'ai_karari'))
+    return JsonResponse({'sonuclar': data})
+
+# API 6: Spesifik Öğrencinin Karnesi (Dinamik Parametreli)
+def api_ogrenci_detay(request, ogrenci_id):
+    karneler = list(SinavSonucu.objects.filter(ogrenci__ogrenci_id=ogrenci_id).values('sinav__sinav_adi', 'toplam_puan', 'ai_karari'))
+    return JsonResponse({'ogrenci_id': ogrenci_id, 'sonuclar': karneler})
+
+# API 7: Spesifik Sınavın Puan Listesi (Dinamik Parametreli)
+def api_sinav_detay(request, sinav_id):
+    sonuclar = list(SinavSonucu.objects.filter(sinav__sinav_id=sinav_id).values('ogrenci__ogrenci_id', 'toplam_puan', 'ai_karari'))
+    return JsonResponse({'sinav_id': sinav_id, 'sonuclar': sonuclar})
+
+# API 8: Bir Akademisyenin Verdiği Dersler
+def api_akademisyen_dersler(request, akad_id):
+    hoca = Akademisyen.objects.filter(akademisyen_id=akad_id).first()
+    if hoca:
+        dersler = list(hoca.verdigi_dersler.values('ders_id', 'ders_adi'))
+        return JsonResponse({'akademisyen_id': akad_id, 'dersler': dersler})
+    return JsonResponse({'hata': 'Akademisyen bulunamadı'}, status=404)
+
+# API 9: Sistemin Genel İstatistikleri (Hocaya Şov)
+def api_genel_istatistik(request):
+    toplam_kagit = SinavSonucu.objects.count()
+    ortalama = SinavSonucu.objects.aggregate(Avg('toplam_puan'))['toplam_puan__avg'] or 0
+    return JsonResponse({
+        'sistem_durumu': 'Aktif',
+        'toplam_okunan_kagit': toplam_kagit,
+        'genel_basari_ortalamasi': round(ortalama, 2)
+    })
