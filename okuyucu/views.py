@@ -3,7 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render
 from django.db.models import Avg, Count, Q  # İstatistikler için eklendi!
 import os
-from .models import SinavSonucu, Ogrenci, Sinav, Ders
+from .models import SinavSonucu, Ogrenci, Sinav, Ders, Akademisyen
 
 def ana_sayfa(request):
     sinav_id = request.GET.get('sinav_id')
@@ -77,6 +77,7 @@ def sinav_yukle_api(request):
         if os.path.exists(gecici_yol):
             os.remove(gecici_yol)
             
+# API 2: Tüm Dersleri Listele
         if sonuclar.get("durum") == "basarili":
             s_id = str(sonuclar.get("sinav_id", ""))
             o_no = str(sonuclar.get("ogrenci_no", ""))
