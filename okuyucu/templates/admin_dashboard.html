@@ -94,8 +94,7 @@
 
             {% if searched_ogrenci %}
             <div style="background-color: white; padding: 1.5rem; border-radius: 5px; border: 1px solid #ddd;">
-                <h4 style="margin: 0 0 1rem 0; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">🎓 {{
-                    searched_ogrenci.ad_soyad }} ({{ searched_ogrenci.ogrenci_id }})</h4>
+                <h4 style="margin: 0 0 1rem 0; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">🎓 {{ searched_ogrenci.ad_soyad }} ({{ searched_ogrenci.ogrenci_id }})</h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
 
                     <div>
@@ -135,7 +134,7 @@
                                         <td style="padding: 5px; text-align: center;">
                                             <span
                                                 class="{% if sonuc.ai_karari == 'Geçti' %}badge-gecti{% else %}badge-kaldi{% endif %}"
-                                                style="padding: 2px 5px; border-radius: 3px; color: white;">
+                                                style="padding: 2px 5px; border-radius: 3px; color: black;">
                                                 {{ sonuc.ai_karari }}
                                             </span>
                                         </td>
