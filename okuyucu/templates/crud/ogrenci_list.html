@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Öğrenciler{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-top: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <h2 style="color: #2980b9; margin: 0;">🎓 Tüm Öğrenciler</h2>
+        <a href="{% url 'okuyucu:ogrenci_ekle' %}" style="background-color: #2ecc71; color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 5px; font-weight: bold;">+ Öğrenci Ekle</a>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="background-color: #ecf0f1; border-bottom: 2px solid #bdc3c7;">
+                <th style="padding: 1rem;">Öğrenci No</th>
+                <th style="padding: 1rem;">Ad Soyad</th>
+                <th style="padding: 1rem;">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ogrenci in ogrenciler %}
+            <tr style="border-bottom: 1px solid #ecf0f1;">
+                <td style="padding: 1rem; font-weight: bold;">{{ ogrenci.ogrenci_id }}</td>
+                <td style="padding: 1rem;">{{ ogrenci.ad_soyad }}</td>
+                <td style="padding: 1rem;">
+                    <a href="{% url 'okuyucu:ana_sayfa' %}?ogrenci_no={{ ogrenci.ogrenci_id }}" style="color: #3498db; text-decoration: none; font-weight: bold;">Karnesini Gör</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3" style="padding: 2rem; text-align: center; color: #7f8c8d;">Sistemde kayıtlı öğrenci yok.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

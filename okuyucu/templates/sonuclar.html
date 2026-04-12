@@ -54,11 +54,7 @@
                 {% endif %}
 
                 <th style="padding: 1rem;">Sorumlu Akademisyen</th>
-                <th style="padding: 1rem;">S1</th>
-                <th style="padding: 1rem;">S2</th>
-                <th style="padding: 1rem;">S3</th>
-                <th style="padding: 1rem;">S4</th>
-                <th style="padding: 1rem;">S5</th>
+                <th style="padding: 1rem;">Sorular ve Puanlar</th>
                 <th style="padding: 1rem;">Toplam</th>
                 <th style="padding: 1rem;">Karar</th>
             </tr>
@@ -82,11 +78,16 @@
                     {% endif %}
                 </td>
 
-                <td style="padding: 1rem;">{{ s.soru_1 }}</td>
-                <td style="padding: 1rem;">{{ s.soru_2 }}</td>
-                <td style="padding: 1rem;">{{ s.soru_3 }}</td>
-                <td style="padding: 1rem;">{{ s.soru_4 }}</td>
-                <td style="padding: 1rem;">{{ s.soru_5 }}</td>
+                <td style="padding: 1rem; font-size: 0.9rem;">
+                    {% for q_num, p in s.sorular_ve_puanlar.items %}
+                        <span style="display:inline-block; margin-right:5px; background:#f1f2f6; padding:2px 6px; border-radius:4px;">
+                            S{{ q_num }}: <strong>{{ p }}</strong>
+                        </span>
+                    {% empty %}
+                        <span style="color:#999;">Veri Yok</span>
+                    {% endfor %}
+                </td>
+
                 <td style="padding: 1rem; font-weight: bold;">{{ s.toplam_puan }}</td>
                 <td style="padding: 1rem;">
                     <span class="badge {% if s.ai_karari == 'Geçti' %}bg-success{% else %}bg-danger{% endif %}">

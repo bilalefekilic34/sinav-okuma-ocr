@@ -102,7 +102,7 @@ class SinavMotoru:
 
         okunan_veriler = {
             "sinav_id": "00000", "ogrenci_no": "0000",
-            "soru_1": -1, "soru_2": -1, "soru_3": -1, "soru_4": -1, "soru_5": -1
+            "sorular": {}, "toplam_puan": 0
         }
 
         # JSON Çıkarımı: Öncelikle metin içinde ```json ... ``` bloğunu arıyoruz
@@ -116,8 +116,10 @@ class SinavMotoru:
                 parsed_json = json.loads(json_match.group(1) if '```' in json_match.group(0) else json_match.group(0))
                 okunan_veriler["sinav_id"] = str(parsed_json.get("sinav_id", "00000"))
                 okunan_veriler["ogrenci_no"] = str(parsed_json.get("ogrenci_no", "0000"))
-                for i in range(1, 6):
-                    okunan_veriler[f"soru_{i}"] = int(parsed_json.get(f"soru_{i}", -1))
+                for key, val in parsed_json.items():
+                    if key.startswith("soru_") and key != "soru_":
+                        q_num = key.split("_")[1]
+                        okunan_veriler["sorular"][str(q_num)] = int(val)
             except Exception as e:
                 print(f"JSON Parse Hatası: {e}")
 
@@ -145,85 +147,69 @@ class SinavMotoru:
         # PUANLARI ARAMA MANTIĞI:
         
         # 1. Aşama: Tam etiketler (Soru 1, S1, Soru01) (Markdown tablolarını | operatörü ile kapsar)
-        for i in range(1, 6):
-            # '-', sınıfın en sonuna kondu ki aralık (.dan :ye gibi) yaratmasın!
-            soru_match = re.search(rf'(?:Soru\s*{i}|S\s*{i}|Soru0?{i})[\s:\|]+(\d+)', temiz_metin, re.IGNORECASE)
-            if soru_match:
-                okunan_veriler[f"soru_{i}"] = int(soru_match.group(1))
-        print(f">>> [AŞAMA 1 BİTİMİ] { [okunan_veriler[f'soru_{i}'] for i in range(1,6)] }")
+        for m in re.finditer(r'(?:Soru\s*|S\s*|Soru0?)(\d+)[\s:\|]+(\d+)', temiz_metin, re.IGNORECASE):
+            q_num, score = int(m.group(1)), int(m.group(2))
+            if 0 < q_num <= 50 and score <= 100:
+                okunan_veriler["sorular"][str(q_num)] = score
                 
-        # 2. Aşama: Puanlı ve az noktalı liste formatı (1. 20, 1) 15, 1: 10, | 1 | 20 vb)
-        for i in range(1, 6):
-            if okunan_veriler[f"soru_{i}"] == -1:
-                # '-', sınıfın en sonuna kondu ki aralık yaratmasın!
-                isaretli_match = re.search(rf'\b{i}\s*[\.\):\|]+(?:\s|-)*(\d+)', temiz_metin)
-                if isaretli_match:
-                    okunan_veriler[f"soru_{i}"] = int(isaretli_match.group(1))
-        print(f">>> [AŞAMA 2 BİTİMİ] { [okunan_veriler[f'soru_{i}'] for i in range(1,6)] }")
+        # 2. Aşama: Puanlı ve az noktalı liste formatı (1. 20, 1) 15)
+        for m in re.finditer(r'\b(\d+)\s*[\.\):\|]+(?:\s|-)*(\d+)', temiz_metin):
+            q_num, score = int(m.group(1)), int(m.group(2))
+            if 0 < q_num <= 50 and score <= 100 and str(q_num) not in okunan_veriler["sorular"]:
+                okunan_veriler["sorular"][str(q_num)] = score
 
-        # Hala -1 olan puanlar var mı?
-        eksik_var = any(okunan_veriler[f"soru_{i}"] == -1 for i in range(1, 6))
+        def dagit(liste):
+            if not liste: return
+            # Eğer listedeki son eleman toplam puansa ayıkla
+            if len(liste) > 1 and liste[-1] >= sum(liste[:-1]) and sum(liste[:-1]) > 0:
+                liste = liste[:-1]
+            elif len(liste) > 1 and liste[-1] > max(liste[:-1]):
+                liste = liste[:-1]
+            for idx, p in enumerate(liste, start=1):
+                if str(idx) not in okunan_veriler["sorular"]:
+                    okunan_veriler["sorular"][str(idx)] = p
 
         # 3. Aşama: "PUAN" veya "PUANLAR" başlığı altındaki liste
-        if eksik_var and "PUAN" in temiz_metin.upper():
+        if len(okunan_veriler["sorular"]) == 0 and "PUAN" in temiz_metin.upper():
             puan_kismi = temiz_metin.upper().split("PUAN")[-1]
             puanlar = re.findall(r'\b\d+\b', puan_kismi)
             toplanan = [int(p) for p in puanlar if int(p) <= 100]
-            print(f">>> [AŞAMA 3] 'PUAN' bulundu. Toplanan: {toplanan}")
-            # Zaten bulduklarımızı ezmeden kalanı ekle
-            idx = 0
-            for i in range(1, 6):
-                if okunan_veriler[f"soru_{i}"] == -1 and idx < len(toplanan):
-                    okunan_veriler[f"soru_{i}"] = toplanan[idx]
-                    idx += 1
-            eksik_var = any(okunan_veriler[f"soru_{i}"] == -1 for i in range(1, 6))
-        print(f">>> [AŞAMA 3 BİTİMİ] { [okunan_veriler[f'soru_{i}'] for i in range(1,6)] }")
+            dagit(toplanan)
 
-        # 4. Aşama: Hiçbir format kalmadıysa, serbest sayı dizisine bak (Örn: 1 20 2 15 3 0 4 5 5 10 veya dümdüz 20 15 0 5 10)
-        if eksik_var:
-            # ID ve NO'yu karıştırmamak için sil
+        # 4. Aşama: Hiçbir format kalmadıysa, serbest sayı dizisine bak (Örn: 1 20 2 15 veya dümdüz 20 15 10)
+        if len(okunan_veriler["sorular"]) == 0:
             sade_metin = temiz_metin
             if okunan_veriler["sinav_id"] != "00000": sade_metin = sade_metin.replace(okunan_veriler["sinav_id"], " ")
             if okunan_veriler["ogrenci_no"] != "0000": sade_metin = sade_metin.replace(okunan_veriler["ogrenci_no"], " ")
             
             _tum = [int(x) for x in re.findall(r'\b\d+\b', sade_metin) if int(x) <= 100]
-            # Form: 1 X 2 Y 3 Z 4 W 5 V mi?
-            # 1, 2, 3, 4, 5 listesinin elemanlarını sırayla içeriyor mu? Ve sayıları tamamsa:
             hedef_soru = 1
             puan_adaylari = []
             for num in _tum:
                 if num == hedef_soru:
                     hedef_soru += 1
                 else:
-                    # Soru numarası değilse puandır
                     puan_adaylari.append(num)
             
-            if hedef_soru > 5 and len(puan_adaylari) >= 5:
-                # Muhtemelen sayılarıyla beraber Soru1, Puan1 diye aktı
-                pass # puan_adaylari listesini sırayla kullanacagiz
-            else:
-                # Direkt dümdüz puanlar
-                # Ama ilk baştaki gereksiz 1, 2, 3 ler varsa? (sadece puan listesiyse sorun yok)
-                # Yine sadece eksikleri doldur, 1-5 fırça silmesi (silersen sıfır alan da yanar) yapmak tehlikeli.
+            if hedef_soru <= 2:
                 puan_adaylari = _tum
 
-            idx = 0
-            for i in range(1, 6):
-                if okunan_veriler[f"soru_{i}"] == -1 and idx < len(puan_adaylari):
-                    okunan_veriler[f"soru_{i}"] = puan_adaylari[idx]
-                    idx += 1
-        print(f">>> [AŞAMA 4 BİTİMİ] { [okunan_veriler[f'soru_{i}'] for i in range(1,6)] }")
+            dagit(puan_adaylari)
 
-        # Güvenlik: Maksimum soru puanı muhtemelen 100'ü geçemez. Ayrıca -1 kalanları 0'a çek
-        for i in range(1, 6):
-            if okunan_veriler[f"soru_{i}"] > 100 or okunan_veriler[f"soru_{i}"] == -1:
-                okunan_veriler[f"soru_{i}"] = 0
+        # Güvenlik ve Temizlik
+        for k in list(okunan_veriler["sorular"].keys()):
+            if okunan_veriler["sorular"][k] > 100:
+                okunan_veriler["sorular"][k] = 0
 
-        # Toplam ve ML Tahmini
-        okunan_veriler["toplam_puan"] = sum([okunan_veriler[f"soru_{i}"] for i in range(1, 6)])
+        # Toplam Puan
+        okunan_veriler["toplam_puan"] = sum(okunan_veriler["sorular"].values())
         
-        input_df = pd.DataFrame([[okunan_veriler["soru_1"], okunan_veriler["soru_2"], okunan_veriler["soru_3"], okunan_veriler["soru_4"], okunan_veriler["soru_5"]]], columns=['soru_1', 'soru_2', 'soru_3', 'soru_4', 'soru_5'])
+        # ML Tahmini İçin Uyumluluk (Önceki model 5 soru sütunu üzerine eğitilmişti, dummy verilerle besle)
+        ML_beklenen_sutunlar = ['soru_1', 'soru_2', 'soru_3', 'soru_4', 'soru_5']
+        ml_input = [okunan_veriler["sorular"].get(str(i), 0) for i in range(1, 6)]
+        input_df = pd.DataFrame([ml_input], columns=ML_beklenen_sutunlar)
         tahmin = self.ml_model.predict(input_df)[0]
+        
         okunan_veriler["yapay_zeka_karari"] = "Geçti" if tahmin == 1 else "Kaldı"
         okunan_veriler["durum"] = "basarili" if okunan_veriler["sinav_id"] != "00000" else "hata"
         

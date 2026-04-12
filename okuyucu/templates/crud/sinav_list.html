@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Sınavlar{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-top: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <h2 style="color: #2980b9; margin: 0;">📝 Sınavlarım</h2>
+        <a href="{% url 'okuyucu:sinav_ekle' %}" style="background-color: #2ecc71; color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 5px; font-weight: bold;">+ Yeni Sınav Oku</a>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="background-color: #ecf0f1; border-bottom: 2px solid #bdc3c7;">
+                <th style="padding: 1rem;">Sınav ID</th>
+                <th style="padding: 1rem;">Ders</th>
+                <th style="padding: 1rem;">Sınav Adı</th>
+                <th style="padding: 1rem;">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sinav in sinavlar %}
+            <tr style="border-bottom: 1px solid #ecf0f1;">
+                <td style="padding: 1rem; font-weight: bold;">{{ sinav.sinav_id }}</td>
+                <td style="padding: 1rem;">{{ sinav.ders.ders_id }}</td>
+                <td style="padding: 1rem;">{{ sinav.sinav_adi }}</td>
+                <td style="padding: 1rem;">
+                    <a href="{% url 'okuyucu:ana_sayfa' %}?sinav_id={{ sinav.sinav_id }}" style="color: #3498db; text-decoration: none; font-weight: bold;">Kağıtları Göster</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="padding: 2rem; text-align: center; color: #7f8c8d;">Sistemde kayıtlı sınavınız yok.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
