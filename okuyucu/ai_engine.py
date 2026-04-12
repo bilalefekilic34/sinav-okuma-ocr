@@ -7,7 +7,7 @@ import re
 import shutil
 import time
 import sys
-import io  # <--- Hatanın çözümü burada!
+import io  
 from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
 
 # --- HOCANIN KURALI: İNTERNET BAĞLANTISINI TAMAMEN KES ---
