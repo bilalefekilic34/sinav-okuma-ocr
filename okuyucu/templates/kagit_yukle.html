@@ -5,11 +5,12 @@
 {% block content %}
 <div id="sinav-yukle" class="card" style="max-width: 600px; margin: 0 auto; border-top: 4px solid #e67e22;">
     <h2 style="color: #d35400;">📸 Yapay Zeka ile Sınav Okut</h2>
-    <p>Sınav kağıdının fotoğrafını yükleyin. Yapay zeka okuyacak ve size onaylamanız için bir önizleme sunacak.</p>
+    <p>Sınav kağıdının fotoğrafını veya PDF dosyasını yükleyin. Yapay zeka okuyacak ve size onaylamanız için bir önizleme sunacak.</p>
 
     <form id="uploadForm" enctype="multipart/form-data" class="form-group">
-        <label for="sinav_kagidi" style="font-weight: bold;">Sınav Kağıdı (.jpg, .png)</label>
-        <input type="file" id="sinav_kagidi" name="sinav_kagidi" accept="image/*" required
+        <label for="sinav_kagidi" style="font-weight: bold;">Sınav Kağıdı (.jpg, .png, .pdf)</label>
+        <input type="file" id="sinav_kagidi" name="sinav_kagidi"
+            accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" required
             style="border: 1px dashed #ccc; padding: 1rem;">
         <button type="submit" style="background-color: #e67e22; font-size: 1.1rem; padding: 1rem;">🚀 Okut ve Önizle</button>
     </form>
@@ -21,7 +22,7 @@
     document.getElementById('uploadForm').addEventListener('submit', function (e) {
         e.preventDefault();
         const resultDiv = document.getElementById('uploadResult');
-        resultDiv.innerHTML = "⏳ Yapay Zeka kağıdı okuyor... <br><span style='font-size:0.9rem; color:#666;'>(Bu işlem bilgisayar hızına göre 10-30 saniye sürebilir)</span>";
+        resultDiv.innerHTML = "⏳ Yapay Zeka kağıdı okuyor... <br><span style='font-size:0.9rem; color:#666;'>(PDF ise her sayfa ayrı işlenir, bu işlem 10-60 saniye sürebilir)</span>";
         resultDiv.style.color = "black";
 
         const formData = new FormData(this);

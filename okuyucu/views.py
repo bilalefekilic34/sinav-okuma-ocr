@@ -73,14 +73,20 @@ def kagit_yukle(request):
     if request.method == 'GET':
         return render(request, 'kagit_yukle.html')
 
-    from .ai_engine import SinavMotoru 
+    from .ai_engine import SinavMotoru, dosyayi_isle
+    import fitz as pymupdf
+
     motor = SinavMotoru()
 
     if request.method == 'POST' and request.FILES.get('sinav_kagidi'):
         yuklenen_kagit = request.FILES['sinav_kagidi']
+        uzanti = os.path.splitext(yuklenen_kagit.name)[1].lower()
+
+        # Uzantı kontrolü
+        IZIN_VERILEN = {'.jpg', '.jpeg', '.png', '.pdf'}
+        if uzanti not in IZIN_VERILEN:
+            return JsonResponse({"durum": "hata", "mesaj": f"Desteklenmeyen dosya tipi: {uzanti}. Lütfen .jpg, .png veya .pdf yükleyin."})
         
-        # Resmi static klasörüne kaydet ki önizlemede görünsün
-        import os
         hedef_klasor = os.path.join(os.path.dirname(__file__), 'static', 'temp_uploads')
         os.makedirs(hedef_klasor, exist_ok=True)
         gecici_yol = os.path.join(hedef_klasor, yuklenen_kagit.name)
@@ -88,18 +94,63 @@ def kagit_yukle(request):
         with open(gecici_yol, 'wb+') as hedef:
             for chunk in yuklenen_kagit.chunks():
                 hedef.write(chunk)
-                
-        sonuclar = motor.kagidi_oku_ve_degerlendir(gecici_yol)
-        
-        if sonuclar.get("durum") == "basarili":
-            # Veritabanına YAZMIYORUZ. Session'a kaydedip önizlemeye geçiyoruz.
-            request.session['temp_sonuclar'] = sonuclar
-            request.session['temp_resim'] = f"/static/temp_uploads/{yuklenen_kagit.name}"
-            return JsonResponse({"durum": "basarili", "yonlendir": "/okuyucu/onizleme/"})
+
+        # --- PDF: sayfaları ayrı ayrı işle ve her sayfa için önizleme JPEG kaydet ---
+        if uzanti == '.pdf':
+            try:
+                belge = pymupdf.open(gecici_yol)
+            except Exception as e:
+                return JsonResponse({"durum": "hata", "mesaj": f"PDF açılamadı: {e}"})
+
+            tum_sonuclar = []
+            dosya_adi_gövde = os.path.splitext(yuklenen_kagit.name)[0]
+
+            for sayfa_no in range(len(belge)):
+                sayfa = belge[sayfa_no]
+                matris = pymupdf.Matrix(2, 2)
+                piksel = sayfa.get_pixmap(matrix=matris)
+
+                # Önizleme için kalıcı JPEG (silinmeyecek, kullanıcı görecek)
+                onizleme_adi = f"{dosya_adi_gövde}_sayfa_{sayfa_no + 1}.jpg"
+                onizleme_yolu = os.path.join(hedef_klasor, onizleme_adi)
+                piksel.save(onizleme_yolu)
+
+                # OCR motoruna gönder
+                try:
+                    sonuc = motor.kagidi_oku_ve_degerlendir(onizleme_yolu)
+                except Exception as e:
+                    sonuc = {"sinav_id": "00000", "ogrenci_no": "0000",
+                             "sorular": {str(i): 0 for i in range(1, 6)},
+                             "toplam_puan": 0, "yapay_zeka_karari": "Kaldı", "durum": "hata"}
+
+                sonuc["kaynak_dosya"] = yuklenen_kagit.name
+                sonuc["pdf_sayfa_no"] = sayfa_no + 1
+                sonuc["onizleme_resim"] = f"/static/temp_uploads/{onizleme_adi}"
+                tum_sonuclar.append(sonuc)
+
+            belge.close()
+
         else:
-            return JsonResponse({"durum": "hata", "mesaj": "Sınav ID veya Öğrenci No okunamadı."})
+            # JPG / PNG — tek dosya
+            sonuc = motor.kagidi_oku_ve_degerlendir(gecici_yol)
+            sonuc["kaynak_dosya"] = yuklenen_kagit.name
+            sonuc["pdf_sayfa_no"] = None
+            sonuc["onizleme_resim"] = f"/static/temp_uploads/{yuklenen_kagit.name}"
+            tum_sonuclar = [sonuc]
+
+        if not tum_sonuclar:
+            return JsonResponse({"durum": "hata", "mesaj": "Dosya işlenemedi."})
+
+        # Session: tüm sayfaları sakla, ilk sayfayı öne al
+        request.session['pdf_sonuclar'] = tum_sonuclar
+        request.session['pdf_sayfa_index'] = 0
+        request.session['temp_sonuclar'] = tum_sonuclar[0]
+        request.session['temp_resim'] = tum_sonuclar[0].get("onizleme_resim", "")
+
+        return JsonResponse({"durum": "basarili", "yonlendir": "/okuyucu/onizleme/"})
             
     return JsonResponse({"durum": "hata", "mesaj": "Sadece POST isteği ve 'sinav_kagidi' dosyası kabul edilir."})
+
 
 # Geriye dönük uyumluluk veya saf API kullanımı (opsiyonel)
 @csrf_exempt 
@@ -114,14 +165,23 @@ def onizleme_sayfasi(request):
         
     sonuclar = request.session['temp_sonuclar']
     resim_url = request.session.get('temp_resim', '')
+
+    # Çok sayfalı PDF bilgisi
+    pdf_sonuclar = request.session.get('pdf_sonuclar', [])
+    pdf_sayfa_index = request.session.get('pdf_sayfa_index', 0)
+    toplam_sayfa = len(pdf_sonuclar)
     
     if request.method == 'POST':
-        # Kullanıcı formdan düzenleyip onayladıysa DB'ye yaz
+        # Hangi sayfanın kaydedileceğini form'dan al (hidden field)
+        try:
+            pdf_sayfa_index = int(request.POST.get("pdf_sayfa_index", pdf_sayfa_index))
+        except (ValueError, TypeError):
+            pass
+
         s_id = request.POST.get("sinav_id")
         o_no = request.POST.get("ogrenci_no")
         ai_karari = request.POST.get("yapay_zeka_karari", "Bilinmiyor")
         
-        # Dinamik soruları topla
         sorular_dict = {}
         toplam_puan = 0
         for key, value in request.POST.items():
@@ -134,7 +194,6 @@ def onizleme_sayfasi(request):
                 except:
                     pass
         
-        # Öğrenci ve Sınav oluştur (Yoksa)
         ders, _ = Ders.objects.get_or_create(ders_id="BLG101", defaults={"ders_adi": "Otomatik Eklenen Ders"})
         sinav, _ = Sinav.objects.get_or_create(sinav_id=s_id, defaults={"ders": ders, "sinav_adi": "Tarandı"})
         ogrenci, _ = Ogrenci.objects.get_or_create(ogrenci_id=o_no, defaults={"ad_soyad": f"Öğrenci {o_no}"})
@@ -150,19 +209,35 @@ def onizleme_sayfasi(request):
             }
         )
         
-        # Session'ı temizle
-        del request.session['temp_sonuclar']
-        if 'temp_resim' in request.session:
-            del request.session['temp_resim']
+        # --- Çok sayfalı PDF: sıradaki sayfaya geç ---
+        sonraki_index = pdf_sayfa_index + 1
+        if pdf_sonuclar and sonraki_index < toplam_sayfa:
+            # Sıradaki sayfayı göster
+            request.session['pdf_sayfa_index'] = sonraki_index
+            request.session['temp_sonuclar'] = pdf_sonuclar[sonraki_index]
+            request.session['temp_resim'] = pdf_sonuclar[sonraki_index].get("onizleme_resim", "")
+            # Session değişikliklerinin kaydedilmesi için zorla işaretle
+            request.session.modified = True
+            return redirect("/okuyucu/onizleme/")
+        
+        # --- Son sayfa veya tek dosya: session temizle ---
+        for key in ['temp_sonuclar', 'temp_resim', 'pdf_sonuclar', 'pdf_sayfa_index']:
+            request.session.pop(key, None)
             
         return redirect(f"/okuyucu/?sinav_id={s_id}")
 
-    # GET isteğinde önizleme sayfasını render et
+    # GET: önizleme sayfasını render et
     context = {
         'sonuclar': sonuclar,
-        'resim_url': resim_url
+        'resim_url': resim_url,
+        'pdf_sayfa_no': pdf_sayfa_index + 1,
+        'toplam_sayfa': toplam_sayfa,
+        'cok_sayfali': toplam_sayfa > 1,
+        'pdf_sayfa_index': pdf_sayfa_index,
+        'pdf_sonuclar': pdf_sonuclar,   # json_script filtresi bu listeyi serialize edecek
     }
     return render(request, 'onizleme.html', context)
+
 
 def api_ogrenciler(request):
     data = list(Ogrenci.objects.values('ogrenci_id', 'ad_soyad'))

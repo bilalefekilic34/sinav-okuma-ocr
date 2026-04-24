@@ -3,152 +3,278 @@
 {% block title %}Önizleme ve Onay - Sınav Sistemi{% endblock %}
 
 {% block content %}
-<div style="text-align: center; margin-bottom: 2rem;">
-    <h2>🔍 Önizleme ve Onay Ekranı</h2>
-    <p>Yapay zekanın okuduğu notları kontrol edin. Hata varsa düzelterek kaydedebilirsiniz.</p>
+
+{# Tüm PDF sayfa verilerini JS'e güvenli göm #}
+{{ pdf_sonuclar|json_script:"pdf-data-json" }}
+<div id="pdf-aktif-index" data-value="{{ pdf_sayfa_index }}" style="display:none;"></div>
+
+<div style="text-align: center; margin-bottom: 1.5rem;">
+  <h2>🔍 Önizleme ve Onay Ekranı</h2>
+  <p>Yapay zekanın okuduğu notları kontrol edin. Hata varsa düzelterek kaydedebilirsiniz.</p>
+
+  {% if cok_sayfali %}
+  <!-- Sayfa Navigasyon Çubuğu -->
+  <div style="display:inline-flex; align-items:center; gap:1rem; background:#f0f4ff;
+              padding:0.6rem 1.2rem; border-radius:8px; margin-top:0.5rem;">
+    <button id="btn-onceki" onclick="sayfaDegistir(-1)"
+            style="background:#3498db; color:white; border:none; border-radius:6px;
+                   padding:0.4rem 1rem; font-size:1rem; cursor:pointer;">
+      ← Önceki
+    </button>
+    <span id="sayfa-sayaci" style="font-weight:bold; font-size:1rem; min-width:90px; text-align:center;">
+      Sayfa <span id="aktif-no">{{ pdf_sayfa_no }}</span> / {{ toplam_sayfa }}
+    </span>
+    <button id="btn-sonraki" onclick="sayfaDegistir(1)"
+            style="background:#3498db; color:white; border:none; border-radius:6px;
+                   padding:0.4rem 1rem; font-size:1rem; cursor:pointer;">
+      Sonraki →
+    </button>
+  </div>
+  {% endif %}
 </div>
 
-<div class="dashboard-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; align-items: start;">
-    
-    <!-- Sol Panel: Resim Önizleme (Tıklayınca Tam Ekran) -->
-    <div class="card" style="padding: 1rem; text-align: center;">
-        <h3 style="margin-bottom: 1rem;">📄 Orijinal Sınav Kağıdı</h3>
-        <p style="font-size: 0.8rem; color: #7f8c8d; margin-top: -0.5rem; margin-bottom: 1rem;">(Tam ekran yapmak için resme tıklayın)</p>
-        <img id="kagit-resmi" src="{{ resim_url }}" alt="Sınav Kağıdı" style="max-width: 100%; border: 1px solid #ccc; border-radius: 5px; cursor: pointer; transition: transform 0.2s;">
+<div class="dashboard-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:2rem; align-items:start;">
+
+  <!-- Sol Panel: Resim Önizleme -->
+  <div class="card" style="padding:1rem; text-align:center;">
+    <h3 style="margin-bottom:0.5rem;">📄 Orijinal Sınav Kağıdı</h3>
+    <p style="font-size:0.8rem; color:#7f8c8d; margin-bottom:1rem;">(Tam ekran için resme tıklayın)</p>
+
+    <div id="resim-alani">
+      {% if resim_url %}
+      <img id="kagit-resmi" src="{{ resim_url }}" alt="Sınav Kağıdı"
+           style="max-width:100%; border:1px solid #ccc; border-radius:5px; cursor:pointer; transition:transform 0.2s;">
+      {% else %}
+      <div id="resim-placeholder"
+           style="width:100%; min-height:200px; background:#f5f5f5; border:2px dashed #ccc;
+                  border-radius:8px; display:flex; align-items:center; justify-content:center;
+                  color:#aaa; font-size:1.1rem;">
+        📄 Önizleme mevcut değil
+      </div>
+      {% endif %}
     </div>
+  </div>
 
-    <!-- Sağ Panel: Form ve Düzeltme -->
-    <div class="card" style="border-top: 4px solid #3498db;">
-        <h3 style="color: #2980b9;">📝 Algılanan Veriler</h3>
-        
-        <form action="{% url 'okuyucu:onizleme_sayfasi' %}" method="POST" class="form-group" style="margin-top: 1rem;">
-            {% csrf_token %}
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div>
-                    <label>Sınav ID</label>
-                    <input type="text" name="sinav_id" value="{{ sonuclar.sinav_id }}" required>
-                </div>
-                <div>
-                    <label>Öğrenci No</label>
-                    <input type="text" name="ogrenci_no" value="{{ sonuclar.ogrenci_no }}" required>
-                </div>
-            </div>
+  <!-- Sağ Panel: Form -->
+  <div class="card" style="border-top:4px solid #3498db;">
+    <h3 style="color:#2980b9;">📝 Algılanan Veriler</h3>
 
-            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #eee;">
-            <h4>Dinamik Soru Puanları</h4>
-            <div id="sorular-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                {% for soru_no, puan in sonuclar.sorular.items %}
-                <div class="soru-input">
-                    <label>Soru {{ soru_no }}</label>
-                    <input type="number" name="soru_{{ soru_no }}" class="puan-input" value="{{ puan }}" required>
-                </div>
-                {% empty %}
-                <div class="soru-input">
-                    <label>Soru 1</label>
-                    <input type="number" name="soru_1" class="puan-input" value="0" required>
-                </div>
-                {% endfor %}
-            </div>
-            
-            <div style="text-align: right;">
-                <button type="button" id="yeni-soru-btn" style="background-color: #f39c12; padding: 0.5rem 1rem; margin-top: 1rem; font-size: 0.9rem; border-radius: 5px; color: white;">+ Yeni Soru Ekle</button>
-            </div>
+    <form id="onay-form" action="{% url 'okuyucu:onizleme_sayfasi' %}" method="POST"
+          class="form-group" style="margin-top:1rem;">
+      {% csrf_token %}
+      <!-- Kaydedilecek sayfa indeksini view'e bildir -->
+      <input type="hidden" name="pdf_sayfa_index" id="form-sayfa-index" value="{{ pdf_sayfa_index }}">
 
-            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #eee;">
-            
-            <div>
-                <label>Hesaplanan Toplam Puan</label>
-                <input type="number" id="toplam_puan" value="{{ sonuclar.toplam_puan }}" readonly style="background-color: #f8f9fa;">
-            </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+        <div>
+          <label>Sınav ID</label>
+          <input type="text" name="sinav_id" id="f-sinav-id" value="{{ sonuclar.sinav_id }}" required>
+        </div>
+        <div>
+          <label>Öğrenci No</label>
+          <input type="text" name="ogrenci_no" id="f-ogrenci-no" value="{{ sonuclar.ogrenci_no }}" required>
+        </div>
+      </div>
 
-            <label>Makine Öğrenmesi Kararı</label>
-            <select name="yapay_zeka_karari" style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; border: 1px solid #ccc; border-radius: 5px;">
-                <option value="Geçti" {% if sonuclar.yapay_zeka_karari == "Geçti" %}selected{% endif %}>✅ Geçti</option>
-                <option value="Kaldı" {% if sonuclar.yapay_zeka_karari == "Kaldı" %}selected{% endif %}>❌ Kaldı</option>
-            </select>
+      <hr style="margin:1.5rem 0; border:none; border-top:1px solid #eee;">
+      <h4>Dinamik Soru Puanları</h4>
+      <div id="sorular-container"
+           style="display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:1rem; margin-top:1rem;">
+        {% for soru_no, puan in sonuclar.sorular.items %}
+        <div class="soru-input">
+          <label>Soru {{ soru_no }}</label>
+          <input type="number" name="soru_{{ soru_no }}" class="puan-input" value="{{ puan }}" required>
+        </div>
+        {% empty %}
+        <div class="soru-input">
+          <label>Soru 1</label>
+          <input type="number" name="soru_1" class="puan-input" value="0" required>
+        </div>
+        {% endfor %}
+      </div>
 
-            <button type="submit" style="background-color: #27ae60; font-size: 1.1rem; padding: 1rem; margin-top: 1.5rem; width: 100%;">
-                💾 Onayla ve Kaydet
-            </button>
-        </form>
-    </div>
+      <div style="text-align:right;">
+        <button type="button" id="yeni-soru-btn"
+                style="background-color:#f39c12; padding:0.5rem 1rem; margin-top:1rem;
+                       font-size:0.9rem; border-radius:5px; color:white;">
+          + Yeni Soru Ekle
+        </button>
+      </div>
+
+      <hr style="margin:1.5rem 0; border:none; border-top:1px solid #eee;">
+
+      <div>
+        <label>Hesaplanan Toplam Puan</label>
+        <input type="number" id="toplam_puan" value="{{ sonuclar.toplam_puan }}"
+               readonly style="background-color:#f8f9fa;">
+      </div>
+
+      <label>Makine Öğrenmesi Kararı</label>
+      <select id="f-karari" name="yapay_zeka_karari"
+              style="width:100%; padding:0.8rem; margin-top:0.5rem; border:1px solid #ccc; border-radius:5px;">
+        <option value="Geçti" {% if sonuclar.yapay_zeka_karari == "Geçti" %}selected{% endif %}>✅ Geçti</option>
+        <option value="Kaldı" {% if sonuclar.yapay_zeka_karari == "Kaldı" %}selected{% endif %}>❌ Kaldı</option>
+      </select>
+
+      <button type="submit" id="kaydet-btn"
+              style="background-color:#27ae60; font-size:1.1rem; padding:1rem; margin-top:1.5rem; width:100%;">
+        {% if cok_sayfali and pdf_sayfa_no < toplam_sayfa %}
+          💾 Kaydet ve Devam Et →
+        {% else %}
+          💾 Onayla ve Kaydet
+        {% endif %}
+      </button>
+    </form>
+  </div>
 
 </div>
 
-<!-- Tam Ekran Resim Modalı -->
-<div id="image-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); justify-content: center; align-items: center; cursor: zoom-out;">
-    <span style="position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; font-weight: bold; cursor: pointer;">&times;</span>
-    <img id="modal-img" src="" style="max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 5px; border: 2px solid #fff;">
+<!-- Tam Ekran Modal -->
+<div id="image-modal"
+     style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%;
+            background-color:rgba(0,0,0,0.9); justify-content:center; align-items:center; cursor:zoom-out;">
+  <span style="position:absolute; top:20px; right:30px; color:white; font-size:40px; font-weight:bold; cursor:pointer;">&times;</span>
+  <img id="modal-img" src="" style="max-width:90%; max-height:90%; object-fit:contain; border-radius:5px; border:2px solid #fff;">
 </div>
-
-<script>
-    // Resme tıklayınca tam ekran yapma mantığı
-    document.getElementById("kagit-resmi").addEventListener("click", function() {
-        const modal = document.getElementById("image-modal");
-        const modalImg = document.getElementById("modal-img");
-        modalImg.src = this.src;
-        modal.style.display = "flex";
-    });
-
-    document.getElementById("image-modal").addEventListener("click", function() {
-        this.style.display = "none";
-    });
-
-    // Dinamik soru ekleme ve toplam puan hesaplama
-    document.addEventListener("DOMContentLoaded", function() {
-        const container = document.getElementById("sorular-container");
-        const yeniSoruBtn = document.getElementById("yeni-soru-btn");
-        const toplamPuanInput = document.getElementById("toplam_puan");
-
-        function updateToplam() {
-            let toplam = 0;
-            document.querySelectorAll(".puan-input").forEach(input => {
-                toplam += parseInt(input.value || 0);
-            });
-            toplamPuanInput.value = toplam;
-        }
-
-        container.addEventListener("input", function(e) {
-            if (e.target.classList.contains("puan-input")) {
-                updateToplam();
-            }
-        });
-
-        yeniSoruBtn.addEventListener("click", function() {
-            // Find highest question number currently exist to append next
-            const inputs = container.querySelectorAll(".puan-input");
-            let maxNum = 0;
-            inputs.forEach(input => {
-                const nameParts = input.name.split('_');
-                if (nameParts.length > 1) {
-                    const num = parseInt(nameParts[1]);
-                    if (num > maxNum) maxNum = num;
-                }
-            });
-            const nextIndex = maxNum + 1;
-            
-            const div = document.createElement("div");
-            div.className = "soru-input";
-            div.innerHTML = `
-                <label>Soru ${nextIndex}</label>
-                <input type="number" name="soru_${nextIndex}" class="puan-input" value="0" required>
-            `;
-            container.appendChild(div);
-            updateToplam();
-        });
-    });
-</script>
 
 <style>
-    .card input[type="text"],
-    .card input[type="number"],
-    .soru-input input {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        box-sizing: border-box;
-    }
+  .card input[type="text"],
+  .card input[type="number"],
+  .soru-input input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  #btn-onceki:disabled, #btn-sonraki:disabled {
+    background: #b2bec3;
+    cursor: not-allowed;
+  }
 </style>
+
+<script>
+// Bootstrap: JSON'u güvenli script elementinden oku
+const TUM_SAYFALAR = JSON.parse(document.getElementById("pdf-data-json").textContent);
+let aktifIndex    = parseInt(document.getElementById("pdf-aktif-index").dataset.value || "0", 10);
+const kagitResmi = document.getElementById("kagit-resmi");
+if (kagitResmi) {
+  kagitResmi.addEventListener("click", function () {
+    document.getElementById("modal-img").src = this.src;
+    document.getElementById("image-modal").style.display = "flex";
+  });
+}
+document.getElementById("image-modal").addEventListener("click", function () {
+  this.style.display = "none";
+});
+
+// ── Toplam puan hesaplama ────────────────────────────────────────────────
+function updateToplam() {
+  let toplam = 0;
+  document.querySelectorAll(".puan-input").forEach(inp => {
+    toplam += parseInt(inp.value || 0);
+  });
+  document.getElementById("toplam_puan").value = toplam;
+}
+document.getElementById("sorular-container").addEventListener("input", function (e) {
+  if (e.target.classList.contains("puan-input")) updateToplam();
+});
+
+// ── Yeni soru ekleme ────────────────────────────────────────────────────
+document.getElementById("yeni-soru-btn").addEventListener("click", function () {
+  const container = document.getElementById("sorular-container");
+  const inputs = container.querySelectorAll(".puan-input");
+  let maxNum = 0;
+  inputs.forEach(inp => {
+    const n = parseInt((inp.name || "").split("_")[1]);
+    if (n > maxNum) maxNum = n;
+  });
+  const nextIndex = maxNum + 1;
+  const div = document.createElement("div");
+  div.className = "soru-input";
+  div.innerHTML = `<label>Soru ${nextIndex}</label>
+    <input type="number" name="soru_${nextIndex}" class="puan-input" value="0" required>`;
+  container.appendChild(div);
+  updateToplam();
+});
+
+// ── PDF Sayfa Navigasyonu ────────────────────────────────────────────────
+const TOPLAM_SAYFA = TUM_SAYFALAR.length;
+
+function sayfaYukle(index) {
+  if (index < 0 || index >= TOPLAM_SAYFA) return;
+  aktifIndex = index;
+
+  const s = TUM_SAYFALAR[index];
+
+  // Resim güncelle
+  const resimAlani = document.getElementById("resim-alani");
+  if (s.onizleme_resim) {
+    resimAlani.innerHTML = `<img id="kagit-resmi" src="${s.onizleme_resim}" alt="Sınav Kağıdı"
+      style="max-width:100%; border:1px solid #ccc; border-radius:5px; cursor:pointer; transition:transform 0.2s;">`;
+    // Modal dinleyicisini yeni elemente bağla
+    document.getElementById("kagit-resmi").addEventListener("click", function () {
+      document.getElementById("modal-img").src = this.src;
+      document.getElementById("image-modal").style.display = "flex";
+    });
+  } else {
+    resimAlani.innerHTML = `<div style="width:100%; min-height:200px; background:#f5f5f5;
+      border:2px dashed #ccc; border-radius:8px; display:flex; align-items:center;
+      justify-content:center; color:#aaa; font-size:1.1rem;">📄 Önizleme mevcut değil</div>`;
+  }
+
+  // Form alanları güncelle
+  document.getElementById("f-sinav-id").value    = s.sinav_id  || "";
+  document.getElementById("f-ogrenci-no").value  = s.ogrenci_no || "";
+  document.getElementById("form-sayfa-index").value = index;
+
+  // Soruları güncelle
+  const container = document.getElementById("sorular-container");
+  container.innerHTML = "";
+  const sorular = s.sorular || {};
+  Object.entries(sorular).forEach(([no, puan]) => {
+    const div = document.createElement("div");
+    div.className = "soru-input";
+    div.innerHTML = `<label>Soru ${no}</label>
+      <input type="number" name="soru_${no}" class="puan-input" value="${puan}" required>`;
+    container.appendChild(div);
+  });
+  updateToplam();
+
+  // Karar güncelle
+  const karariEl = document.getElementById("f-karari");
+  karariEl.value = (s.yapay_zeka_karari === "Geçti") ? "Geçti" : "Kaldı";
+
+  // Sayfa sayacı güncelle
+  const aktifNoEl = document.getElementById("aktif-no");
+  if (aktifNoEl) aktifNoEl.textContent = index + 1;
+
+  // Buton durumları
+  const btnOnceki  = document.getElementById("btn-onceki");
+  const btnSonraki = document.getElementById("btn-sonraki");
+  if (btnOnceki)  btnOnceki.disabled  = (index === 0);
+  if (btnSonraki) btnSonraki.disabled = (index === TOPLAM_SAYFA - 1);
+
+  // Kaydet butonu metni
+  const kaydetBtn = document.getElementById("kaydet-btn");
+  if (kaydetBtn) {
+    kaydetBtn.textContent = (index < TOPLAM_SAYFA - 1)
+      ? "💾 Kaydet ve Devam Et →"
+      : "💾 Onayla ve Kaydet";
+  }
+}
+
+function sayfaDegistir(delta) {
+  sayfaYukle(aktifIndex + delta);
+}
+
+// İlk yüklemede buton durumlarını ayarla
+(function () {
+  const btnOnceki  = document.getElementById("btn-onceki");
+  const btnSonraki = document.getElementById("btn-sonraki");
+  if (btnOnceki)  btnOnceki.disabled  = (aktifIndex === 0);
+  if (btnSonraki) btnSonraki.disabled = (aktifIndex === TOPLAM_SAYFA - 1);
+})();
+</script>
+
 {% endblock %}
