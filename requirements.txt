@@ -1,0 +1,16 @@
+Django==6.0.4
+asgiref==3.11.1
+sqlparse==0.5.5
+rapidocr-onnxruntime==1.4.4
+onnxruntime==1.26.0
+PyMuPDF==1.27.2.2
+pillow==10.4.0
+pandas==3.0.2
+numpy==2.3.5
+joblib==1.5.3
+scikit-learn==1.8.0
+scipy==1.17.1
+threadpoolctl==3.6.0
+python-dateutil==2.9.0.post0
+pytz==2024.1
+six==1.17.0
